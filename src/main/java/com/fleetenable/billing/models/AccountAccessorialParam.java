@@ -17,7 +17,17 @@ public class AccountAccessorialParam {
   private String organization_id;
   private String code;
   private String params_with_wt;
+  private String account_accessorial_id;
   private List<AccessorialWeightParams> accessorial_weight_params;
+
+  public AccountAccessorialParam(){
+    
+  }
+  
+  public AccountAccessorialParam(String account_id, String account_accessorial_id) {
+    this.account_id = account_id;
+    this.account_accessorial_id = account_accessorial_id;
+  }
 
   public String getId() {
     return id;
@@ -54,5 +64,11 @@ public class AccountAccessorialParam {
   }
   public void setAccessorial_weight_params(List<AccessorialWeightParams> accessorial_weight_params) {
     this.accessorial_weight_params = accessorial_weight_params;
+  }
+  public String getAccount_accessorial_id() {
+    return account_accessorial_id;
+  }
+  public void setAccount_accessorial_id(String account_accessorial_id) {
+    this.account_accessorial_id = account_accessorial_id;
   }
 }

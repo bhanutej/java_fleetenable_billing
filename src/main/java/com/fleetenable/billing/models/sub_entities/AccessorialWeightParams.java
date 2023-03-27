@@ -3,14 +3,14 @@ package com.fleetenable.billing.models.sub_entities;
 import java.util.List;
 
 public class AccessorialWeightParams {
-  private String min_weight;
-  private String max_weight;
+  private Integer min_weight;
+  private Integer max_weight;
   private String component_code;
   private String order_type;
-  private String zone_category;
+  private String zone_category = "ALL_ZONES";
   private List<AccessorialWeightParamValues> param_values;
 
-  public AccessorialWeightParams(String min_weight, String max_weight, String component_code, String order_type,
+  public AccessorialWeightParams(Integer min_weight, Integer max_weight, String component_code, String order_type,
       String zone_category, List<AccessorialWeightParamValues> param_values) {
     this.min_weight = min_weight;
     this.max_weight = max_weight;
@@ -20,16 +20,19 @@ public class AccessorialWeightParams {
     this.param_values = param_values;
   }
 
-  public String getMin_weight() {
+  public AccessorialWeightParams() {
+  }
+
+  public Integer getMin_weight() {
     return min_weight;
   }
-  public void setMin_weight(String min_weight) {
+  public void setMin_weight(Integer min_weight) {
     this.min_weight = min_weight;
   }
-  public String getMax_weight() {
+  public Integer getMax_weight() {
     return max_weight;
   }
-  public void setMax_weight(String max_weight) {
+  public void setMax_weight(Integer max_weight) {
     this.max_weight = max_weight;
   }
   public String getComponent_code() {

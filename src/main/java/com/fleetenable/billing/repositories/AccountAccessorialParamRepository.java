@@ -7,5 +7,8 @@ import com.fleetenable.billing.models.AccountAccessorialParam;
 
 public interface AccountAccessorialParamRepository extends MongoRepository<AccountAccessorialParam, String>{
   @Query("{'account_accessorial_id': ?0, 'code': ?1}")
-  AccountAccessorialParam findFirstByAccessorialIdAndCode(String account_id, String code);
+  AccountAccessorialParam findFirstByAccessorialIdAndCode(String account_accessorial_id, String code);
+  
+  @Query("{'account_accessorial_id': ?0, 'account_id': ?1}")
+  AccountAccessorialParam findFirstByAccountAccessorialIdAndAccountId(String account_accessorial_id, String account_id);
 }
