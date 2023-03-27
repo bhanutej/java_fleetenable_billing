@@ -1,5 +1,7 @@
 package com.fleetenable.billing.controllers.v2;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,6 +32,8 @@ import com.fleetenable.billing.repositories.AccountAccessorialRepository;
 
 @RestController
 public class AccountAccessorialsController extends ApplicationController{
+
+  BigDecimal bd;
 
   @Autowired
   AccountAccessorialRepository accountAccessorialRepository;
@@ -78,18 +82,14 @@ public class AccountAccessorialsController extends ApplicationController{
       accountAccessorialParam.setOrganization_id(accountAccessorialParamDto.getOrganization_id());
       accountAccessorialParam.setCode(accountAccessorialParamDto.getCode());
       for(AccessorialParamsDto accessorialParam : accessorialParams) {
-        AccessorialWeightParams newAccessorialWeightParams = new AccessorialWeightParams();
-        accountAccessorialParam.setParams_with_wt(accessorialParam.getParams_with_wt());
-        newAccessorialWeightParams.setMin_weight(Integer.parseInt(accessorialParam.getMin_weight()));
-        newAccessorialWeightParams.setMax_weight(Integer.parseInt(accessorialParam.getMax_weight()));
-        newAccessorialWeightParams.setComponent_code(componentCode);
-        newAccessorialWeightParams.setOrder_type(accessorialParam.getOrder_type());
-        newAccessorialWeightParams.setZone_category(zoneCategory);
+        AccessorialWeightParams newAccessorialWeightParams = updateWeightParamValues(accountAccessorialParam, componentCode,
+            zoneCategory, accessorialParam);
         List<WeightParamValuesDto> weightParamValues = accessorialParam.getWt_param_values();
         
         List<AccessorialWeightParamValues> newWeightParamValues = new ArrayList<AccessorialWeightParamValues>();
         for(WeightParamValuesDto weightParamValue: weightParamValues) {
-          newWeightParamValues.add(new AccessorialWeightParamValues(weightParamValue.getAccessorial_key(), weightParamValue.getAccessorial_value(), weightParamValue.getZone_id()));
+          AccessorialWeightParamValues newAccessorialWeightParamValues = new AccessorialWeightParamValues(weightParamValue.getAccessorial_key(), weightParamValue.getAccessorial_value(), weightParamValue.getZone_id());
+          newWeightParamValues.add(newAccessorialWeightParamValues);
           newAccessorialWeightParams.setParam_values(newWeightParamValues);
         }
         accessorialWeightParams.add(newAccessorialWeightParams);
@@ -98,7 +98,27 @@ public class AccountAccessorialsController extends ApplicationController{
       accountAccessorialParamRepository.save(accountAccessorialParam);
     }
 
+    String withBreakpointWt = getComponentWithBreakpointWtConfig(accountAccessorialParam);
+    if (withBreakpointWt.equalsIgnoreCase("true")) {
+      accountAccessorialParamRepository.save(applyComponentBreakpointWeights(accountAccessorialParam));
+    } else {
+      accountAccessorialParamRepository.save(clearComponentBreakpointWeights(accountAccessorialParam));
+    }
+
+    response.put("success", true);
     return new ResponseEntity<Object>(response, HttpStatus.OK);
+  }
+
+  private AccessorialWeightParams updateWeightParamValues(AccountAccessorialParam accountAccessorialParam, String componentCode,
+      String zoneCategory, AccessorialParamsDto accessorialParam) {
+    AccessorialWeightParams newAccessorialWeightParams = new AccessorialWeightParams();
+    accountAccessorialParam.setParams_with_wt(accessorialParam.getParams_with_wt());
+    newAccessorialWeightParams.setMin_weight(Integer.parseInt(accessorialParam.getMin_weight()));
+    newAccessorialWeightParams.setMax_weight(Integer.parseInt(accessorialParam.getMax_weight()));
+    newAccessorialWeightParams.setComponent_code(componentCode);
+    newAccessorialWeightParams.setOrder_type(accessorialParam.getOrder_type());
+    newAccessorialWeightParams.setZone_category(zoneCategory);
+    return newAccessorialWeightParams;
   }
 
   @PostMapping("/v2/account_accessorials/create_accessorial")
@@ -192,5 +212,83 @@ public class AccountAccessorialsController extends ApplicationController{
     if (accountAccessorialDto.getCode().isEmpty()) {
       errors.add("Please provide code");
     }
+  }
+
+  private AccountAccessorialParam  applyComponentBreakpointWeights(AccountAccessorialParam accountAccessorialParam) {
+    if (accountAccessorialParam != null) {
+      List<AccessorialWeightParams> newAccessorialWeightParams = new ArrayList<AccessorialWeightParams>();
+      List<AccessorialWeightParams> accessorialWeightParams = accountAccessorialParam.getAccessorial_weight_params();
+      List<AccessorialWeightParams> weightedAccessorialWeightParams = new ArrayList<AccessorialWeightParams>();
+      for(AccessorialWeightParams accessorialWeightParam: accessorialWeightParams) {
+        if (accessorialWeightParam.getMax_weight() != 0) {
+          weightedAccessorialWeightParams.add(accessorialWeightParam);
+        }
+      }
+      weightedAccessorialWeightParams = sortAccessorialWeightParams(weightedAccessorialWeightParams);
+      for(int i = 0; i < weightedAccessorialWeightParams.size(); i++) {
+        AccessorialWeightParams currentWeightParam = weightedAccessorialWeightParams.get(i);
+        if (i+1 < weightedAccessorialWeightParams.size()) {
+          AccessorialWeightParams nextWeightParam = weightedAccessorialWeightParams.get(i+1);
+          if(nextWeightParam != null) {
+            int nextWtParamMinWt = nextWeightParam.getMin_weight();
+            float nextWtParamAmount = Float.parseFloat( nextWeightParam.getParam_values().get(0).getAccessorial_value() );
+            float currentWtParamAmount = Float.parseFloat( currentWeightParam.getParam_values().get(0).getAccessorial_value() );
+            BigDecimal breakPointWeight = new BigDecimal((nextWtParamMinWt * nextWtParamAmount)/(currentWtParamAmount));
+            breakPointWeight = breakPointWeight.setScale(2, RoundingMode.HALF_UP);
+            currentWeightParam.setBreakpoint_weight((float) breakPointWeight.floatValue());
+          }
+          newAccessorialWeightParams.add(currentWeightParam);
+        }
+      }
+      for(AccessorialWeightParams accessorialWeightParam: accessorialWeightParams) {
+        if (accessorialWeightParam.getMax_weight() == 0) {
+          newAccessorialWeightParams.add(accessorialWeightParam);
+        }
+      }
+      accountAccessorialParam.setAccessorial_weight_params(newAccessorialWeightParams);
+    }
+    return accountAccessorialParam;
+  }
+
+  private AccountAccessorialParam  clearComponentBreakpointWeights(AccountAccessorialParam accountAccessorialParam) {
+    List<AccessorialWeightParams> accessorialWeightParams = accountAccessorialParam.getAccessorial_weight_params();
+    accessorialWeightParams.removeIf(accWtParam -> accWtParam.getBreakpoint_weight() != null);
+    return accountAccessorialParam;
+  }
+
+  public static List<AccessorialWeightParams> sortAccessorialWeightParams(List<AccessorialWeightParams> weightedAccessorialWeightParams) {
+    int n = weightedAccessorialWeightParams.size();
+    AccessorialWeightParams temp;
+    for(int i = 0; i < n; i++) {
+      for(int j = 1; j < (n - i); j++) {
+        if(weightedAccessorialWeightParams.get(j-1).getMin_weight() > weightedAccessorialWeightParams.get(j).getMin_weight()) {
+          temp = weightedAccessorialWeightParams.get(j-1);
+          weightedAccessorialWeightParams.set(j-1, weightedAccessorialWeightParams.get(j));
+          weightedAccessorialWeightParams.set(j, temp);
+        }
+      }
+    }
+    return weightedAccessorialWeightParams;
+  }
+
+  private String getComponentWithBreakpointWtConfig(AccountAccessorialParam accountAccessorialParam) {
+    String withBreakpointWt = "false";
+    List<AccessorialWeightParams> accessorialWeightParams = accountAccessorialParam.getAccessorial_weight_params();
+    if (accessorialWeightParams.size() > 0) {
+      for(AccessorialWeightParams accessorialWeightParam: accessorialWeightParams) {
+        if (accessorialWeightParam.getMax_weight() == 0 && accessorialWeightParam.getMax_weight() == 0 && accessorialWeightParam.getComponent_code().equalsIgnoreCase("WEIGHT")) {
+          AccessorialWeightParams zeroWeightAccessorialParam = accessorialWeightParam;
+          if (zeroWeightAccessorialParam.getParam_values().size() > 0) {
+            List<AccessorialWeightParamValues> accessorialWeightParamValues = zeroWeightAccessorialParam.getParam_values();
+            for(AccessorialWeightParamValues accessorialWeightParamValue: accessorialWeightParamValues) {
+              if (accessorialWeightParamValue.getAccessorial_key().equalsIgnoreCase("with_break_wt")) {
+                withBreakpointWt = accessorialWeightParamValue.getAccessorial_value();
+              }
+            }
+          }
+        }
+      }
+    }
+    return withBreakpointWt;
   }
 }

@@ -7,6 +7,7 @@ public class AccessorialWeightParams {
   private Integer max_weight;
   private String component_code;
   private String order_type;
+  private Float breakpoint_weight;
   private String zone_category = "ALL_ZONES";
   private List<AccessorialWeightParamValues> param_values;
 
@@ -58,5 +59,13 @@ public class AccessorialWeightParams {
   }
   public void setParam_values(List<AccessorialWeightParamValues> param_values) {
     this.param_values = param_values;
+  }
+
+  public Float getBreakpoint_weight() {
+    return breakpoint_weight;
+  }
+
+  public void setBreakpoint_weight(Float breakpoint_weight) {
+    this.breakpoint_weight = breakpoint_weight;
   }
 }
