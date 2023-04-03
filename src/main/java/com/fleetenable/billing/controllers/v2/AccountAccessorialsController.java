@@ -11,15 +11,24 @@ import java.util.Map;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fleetenable.billing.controllers.ApplicationController;
 import com.fleetenable.billing.dtos.AccountAccessorialDto;
 import com.fleetenable.billing.dtos.AccountAccessorialParamDto;
+import com.fleetenable.billing.dtos.MetaResponseObjectDto;
 import com.fleetenable.billing.dtos.sub_entities.AccessorialParamsDto;
 import com.fleetenable.billing.dtos.sub_entities.AccountAccessorialComponentParamsDto;
 import com.fleetenable.billing.dtos.sub_entities.WeightParamValuesDto;
@@ -43,6 +52,46 @@ public class AccountAccessorialsController extends ApplicationController{
   
   @Autowired
   AccountAccessorialParamRepository accountAccessorialParamRepository;
+
+  @GetMapping("/v2/account_accessorials/account_accessorial_list")
+  public ResponseEntity<Object> getAccountAccessorials(@RequestParam Map<String, String> requestParams ) {
+    ArrayList<String> errors = new ArrayList<String>();
+    Map<String, Object> response = new HashMap<String, Object>();
+
+    String searchText = requestParams.get("search_text");
+    String organizationId = requestParams.get("organization_id");
+    String accountId = requestParams.get("account_id");
+    // String visibleTo = requestParams.get("visible_to");
+    String page = requestParams.get("page");
+    String perPage = requestParams.get("per_page");
+
+    Pageable pageable = PageRequest.of(Integer.parseInt(page), Integer.parseInt(perPage));
+
+    if (errors.size() > 0) {
+      response.put("errors", errors);
+      return new ResponseEntity<Object>(response, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+    List<AccountAccessorial> accountAccessorials;
+
+    if(searchText != null && !searchText.isEmpty()) {
+      accountAccessorials = accountAccessorialRepository.findAccountIdAndOrganizationIdAndSearchText(accountId, organizationId, searchText);
+    } else {
+      accountAccessorials = accountAccessorialRepository.findAccountIdAndOrganizationId(accountId, organizationId);
+    }
+    int start = (int)pageable.getOffset();
+    int end = Math.min((start + pageable.getPageSize()), accountAccessorials.size());
+    PageImpl<AccountAccessorial> accountAccessorialsList = new PageImpl<AccountAccessorial>(accountAccessorials.subList(start, end), pageable, accountAccessorials.size());
+    response.put("success", true);
+    response.put("account_accessorials", accountAccessorialsList.getContent());
+    response.put("data", accountAccessorialsList);
+    ObjectMapper mapper = new ObjectMapper();
+    ObjectNode jsonObject = mapper.createObjectNode();
+
+    JsonNode myObjectJson = mapper.valueToTree(new MetaResponseObjectDto(0, 0, 0, 0, 0));
+    jsonObject.set("pagination", myObjectJson);
+    response.put("meta", jsonObject);
+    return new ResponseEntity<Object>(response, HttpStatus.OK);
+  }
 
   @PostMapping("/v2/account_accessorail_params/create_account_accessorial")
   public ResponseEntity<Object> createAccountAccessorialParams(@RequestBody AccountAccessorialParamDto accountAccessorialParamDto) {
