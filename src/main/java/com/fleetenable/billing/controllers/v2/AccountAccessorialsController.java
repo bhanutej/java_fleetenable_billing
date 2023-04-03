@@ -2,6 +2,7 @@ package com.fleetenable.billing.controllers.v2;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -34,6 +35,8 @@ import com.fleetenable.billing.repositories.AccountAccessorialRepository;
 public class AccountAccessorialsController extends ApplicationController{
 
   BigDecimal bd;
+
+  private DecimalFormat decimalFormat = new DecimalFormat("0.00");
 
   @Autowired
   AccountAccessorialRepository accountAccessorialRepository;
@@ -81,6 +84,14 @@ public class AccountAccessorialsController extends ApplicationController{
 
       accountAccessorialParam.setOrganization_id(accountAccessorialParamDto.getOrganization_id());
       accountAccessorialParam.setCode(accountAccessorialParamDto.getCode());
+
+      verifyBetweenRangeValues(errors, response, accountAccessorialParam, accessorialParams);
+
+      if (errors.size() > 0) {
+        response.put("errors", errors);
+        return new ResponseEntity<Object>(response, HttpStatus.UNPROCESSABLE_ENTITY);
+      }
+
       for(AccessorialParamsDto accessorialParam : accessorialParams) {
         AccessorialWeightParams newAccessorialWeightParams = updateWeightParamValues(accountAccessorialParam, componentCode,
             zoneCategory, accessorialParam);
@@ -107,6 +118,27 @@ public class AccountAccessorialsController extends ApplicationController{
 
     response.put("success", true);
     return new ResponseEntity<Object>(response, HttpStatus.OK);
+  }
+
+  private void verifyBetweenRangeValues(ArrayList<String> errors, Map<String, Object> response,
+      AccountAccessorialParam accountAccessorialParam, List<AccessorialParamsDto> accessorialParams) {
+    for (AccessorialParamsDto accessorialParam : accessorialParams) {
+      if(accessorialParam.getParams_with_wt().equals("true")) {
+        accountAccessorialParam.getAccessorial_weight_params().forEach(accessorialWtParam -> {
+          float accessorialWtParamMinWt = Float.valueOf(decimalFormat.format(accessorialWtParam.getMin_weight()));
+          float accessorialWtParamMaxWt = Float.valueOf(decimalFormat.format(accessorialWtParam.getMax_weight()));
+          float accessorialParamMinWt  = Float.valueOf(Float.parseFloat(accessorialParam.getMin_weight()));
+          float accessorialParamMaxWt  = Float.valueOf(Float.parseFloat(accessorialParam.getMax_weight()));
+          if (((accessorialWtParamMinWt != accessorialParamMinWt) && (accessorialWtParamMaxWt != accessorialParamMaxWt)) &&
+          ((accessorialWtParamMinWt <= accessorialParamMinWt && accessorialWtParamMaxWt >= accessorialParamMinWt) || 
+          (accessorialWtParamMinWt <= accessorialParamMaxWt && accessorialWtParamMaxWt >= accessorialParamMaxWt))
+          ){
+            errors.add("Weights should not be with in previous weight range");
+            response.put("errors", errors);
+          }
+        });
+      }
+    }
   }
 
   private AccessorialWeightParams updateWeightParamValues(AccountAccessorialParam accountAccessorialParam, String componentCode,
@@ -237,8 +269,8 @@ public class AccountAccessorialsController extends ApplicationController{
             breakPointWeight = breakPointWeight.setScale(2, RoundingMode.HALF_UP);
             currentWeightParam.setBreakpoint_weight((float) breakPointWeight.floatValue());
           }
-          newAccessorialWeightParams.add(currentWeightParam);
         }
+        newAccessorialWeightParams.add(currentWeightParam);
       }
       for(AccessorialWeightParams accessorialWeightParam: accessorialWeightParams) {
         if (accessorialWeightParam.getMax_weight() == 0) {
