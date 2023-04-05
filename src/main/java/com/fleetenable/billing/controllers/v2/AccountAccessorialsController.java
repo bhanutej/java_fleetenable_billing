@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -22,13 +21,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fleetenable.billing.controllers.ApplicationController;
 import com.fleetenable.billing.dtos.AccountAccessorialDto;
 import com.fleetenable.billing.dtos.AccountAccessorialParamDto;
-import com.fleetenable.billing.dtos.MetaResponseObjectDto;
 import com.fleetenable.billing.dtos.sub_entities.AccessorialParamsDto;
 import com.fleetenable.billing.dtos.sub_entities.AccountAccessorialComponentParamsDto;
 import com.fleetenable.billing.dtos.sub_entities.WeightParamValuesDto;
@@ -39,6 +34,7 @@ import com.fleetenable.billing.models.sub_entities.AccessorialWeightParams;
 import com.fleetenable.billing.models.sub_entities.AccountAccessorialComponent;
 import com.fleetenable.billing.repositories.AccountAccessorialParamRepository;
 import com.fleetenable.billing.repositories.AccountAccessorialRepository;
+import com.fleetenable.billing.services.CommonServices;
 
 @RestController
 public class AccountAccessorialsController extends ApplicationController{
@@ -46,6 +42,9 @@ public class AccountAccessorialsController extends ApplicationController{
   BigDecimal bd;
 
   private DecimalFormat decimalFormat = new DecimalFormat("0.00");
+
+  @Autowired
+  private CommonServices commonServices;
 
   @Autowired
   AccountAccessorialRepository accountAccessorialRepository;
@@ -65,7 +64,7 @@ public class AccountAccessorialsController extends ApplicationController{
     String page = requestParams.get("page");
     String perPage = requestParams.get("per_page");
 
-    Pageable pageable = PageRequest.of(Integer.parseInt(page), Integer.parseInt(perPage));
+    Pageable pageable = PageRequest.of(Integer.parseInt(page) - 1, Integer.parseInt(perPage));
 
     if (errors.size() > 0) {
       response.put("errors", errors);
@@ -74,22 +73,16 @@ public class AccountAccessorialsController extends ApplicationController{
     List<AccountAccessorial> accountAccessorials;
 
     if(searchText != null && !searchText.isEmpty()) {
-      accountAccessorials = accountAccessorialRepository.findAccountIdAndOrganizationIdAndSearchText(accountId, organizationId, searchText);
+      accountAccessorials = accountAccessorialRepository.findAccountIdAndOrganizationIdAndSearchText(accountId, organizationId, commonServices.searchTextStartsWith(searchText));
     } else {
       accountAccessorials = accountAccessorialRepository.findAccountIdAndOrganizationId(accountId, organizationId);
     }
+    int accountAccessorialsSize = accountAccessorials.size();
     int start = (int)pageable.getOffset();
-    int end = Math.min((start + pageable.getPageSize()), accountAccessorials.size());
-    PageImpl<AccountAccessorial> accountAccessorialsList = new PageImpl<AccountAccessorial>(accountAccessorials.subList(start, end), pageable, accountAccessorials.size());
-    response.put("success", true);
-    response.put("account_accessorials", accountAccessorialsList.getContent());
-    response.put("data", accountAccessorialsList);
-    ObjectMapper mapper = new ObjectMapper();
-    ObjectNode jsonObject = mapper.createObjectNode();
+    int end = Math.min((start + pageable.getPageSize()), accountAccessorialsSize);
+    commonServices.paginationResponse(response, page, perPage, accountAccessorialsSize);
+    response.put("account_accessorials", accountAccessorials.subList(start, end));
 
-    JsonNode myObjectJson = mapper.valueToTree(new MetaResponseObjectDto(0, 0, 0, 0, 0));
-    jsonObject.set("pagination", myObjectJson);
-    response.put("meta", jsonObject);
     return new ResponseEntity<Object>(response, HttpStatus.OK);
   }
 

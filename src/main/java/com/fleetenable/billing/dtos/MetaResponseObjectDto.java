@@ -1,13 +1,13 @@
 package com.fleetenable.billing.dtos;
 
 public class MetaResponseObjectDto {
-  private int current_page;
-  private int next_page;
-  private int prev_page;
-  private int total_pages;
-  private int total_count;
+  private Integer current_page;
+  private Integer next_page;
+  private Integer prev_page;
+  private Integer total_pages;
+  private Integer total_count;
   
-  public MetaResponseObjectDto(int current_page, int next_page, int prev_page, int total_pages, int total_count) {
+  public MetaResponseObjectDto(Integer current_page, Integer next_page, Integer prev_page, Integer total_pages, Integer total_count) {
     this.current_page = current_page;
     this.next_page = next_page;
     this.prev_page = prev_page;
@@ -15,34 +15,34 @@ public class MetaResponseObjectDto {
     this.total_count = total_count;
   }
 
-  public int getCurrent_page() {
+  public Integer getCurrent_page() {
     return current_page;
   }
-  public void setCurrent_page(int current_page) {
+  public void setCurrent_page(Integer current_page) {
     this.current_page = current_page;
   }
-  public int getNext_page() {
+  public Integer getNext_page() {
     return next_page;
   }
-  public void setNext_page(int next_page) {
+  public void setNext_page(Integer next_page) {
     this.next_page = next_page;
   }
-  public int getPrev_page() {
+  public Integer getPrev_page() {
     return prev_page;
   }
-  public void setPrev_page(int prev_page) {
+  public void setPrev_page(Integer prev_page) {
     this.prev_page = prev_page;
   }
-  public int getTotal_pages() {
+  public Integer getTotal_pages() {
     return total_pages;
   }
-  public void setTotal_pages(int total_pages) {
+  public void setTotal_pages(Integer total_pages) {
     this.total_pages = total_pages;
   }
-  public int getTotal_count() {
+  public Integer getTotal_count() {
     return total_count;
   }
-  public void setTotal_count(int total_count) {
+  public void setTotal_count(Integer total_count) {
     this.total_count = total_count;
   }  
 }
